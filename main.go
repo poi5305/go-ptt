@@ -5,16 +5,34 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	websocket2 "github.com/gorilla/websocket"
+	telnet "github.com/reiver/go-telnet"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/terminal"
 	"golang.org/x/net/websocket"
 )
 
+type RW struct {
+	R io.Reader
+	W io.Writer
+}
+
+func (r *RW) Read(p []byte) (n int, err error) {
+	return r.R.Read(p)
+}
+
+func (r *RW) Write(p []byte) (n int, err error) {
+	// fmt.Println("Write", p)
+	return len(p), nil
+	// return r.W.Write(p)
+}
+
 func getSSHClient() (io.Reader, io.Writer) {
 	config := &ssh.ClientConfig{
-		User: "bbs",
+		User: "bbsu",
 		Auth: []ssh.AuthMethod{
 			ssh.Password(""),
 		},
@@ -72,9 +90,56 @@ func getWebsocketClient2() (io.Reader, io.Writer) {
 	return r, w
 }
 
+func getTelnet() io.ReadWriter {
+	conn, err := telnet.DialTo("ptt.cc:23")
+	if err != nil {
+		log.Fatal(err)
+	}
+	return conn
+}
+
 func main() {
-	// r, w := getSSHClient()
-	r, w := getWebsocketClient()
+	// var caller telnet.Caller = telnet.StandardCaller
+	// rw := getTelnet()
+	r, w := getSSHClient()
+	// r, w := getWebsocketClient()
+
+	rw := &RW{
+		R: r,
+		W: w,
+	}
+	// oldState, err := terminal.MakeRaw(0)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// defer terminal.Restore(0, oldState)
+
+	t := terminal.NewTerminal(rw, "")
+	t.SetSize(80, 24)
+	t.SetBracketedPasteMode(true)
+
+	time.Sleep(2 * time.Second)
+	//
+	go func() {
+		for {
+			s, e := t.ReadLine()
+			if e == nil {
+				fmt.Println(s)
+				if strings.Contains(s, "new") {
+					fmt.Println("GGGG")
+				}
+			} else {
+				break
+			}
+		}
+	}()
+
+	w.Write([]byte("guest\r"))
+	time.Sleep(time.Second)
+	w.Write([]byte("111\r"))
+	time.Sleep(time.Second)
+	w.Write([]byte("\n"))
+	time.Sleep(10 * time.Second)
 
 	// bs := make([]byte, 1024, 1024)
 	// go func() {
@@ -99,15 +164,15 @@ func main() {
 	// time.Sleep(time.Second)
 	// time.Sleep(time.Second)
 
-	vm := NewVM(r, w)
-	time.Sleep(2 * time.Second)
-	// vm.writeInitialMessage()
-	fmt.Println("Guest")
-	vm.writeGuest()
-	time.Sleep(1 * time.Second)
-	for {
-		vm.printBoard()
-		time.Sleep(time.Second * 3)
-	}
+	// vm := NewVM(r, w)
+	// time.Sleep(2 * time.Second)
+	// // vm.writeInitialMessage()
+	// fmt.Println("Guest")
+	// vm.writeGuest()
+	// time.Sleep(1 * time.Second)
+	// for {
+	// 	vm.printBoard()
+	// 	time.Sleep(time.Second * 3)
+	// }
 
 }
