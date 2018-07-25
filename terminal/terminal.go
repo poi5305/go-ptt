@@ -121,7 +121,7 @@ func (t *Terminal) handleCtrlByte(r byte) {
 		// 	v.cCol--
 		// }
 	case '\n', '\f', 'v':
-		t.newLine()
+		t.lineFeed()
 		// v.cRow++
 		// v.cCol = 0
 	case '\r':
@@ -134,14 +134,177 @@ func (t *Terminal) handleCtrlByte(r byte) {
 	}
 }
 
-func (t *Terminal) backspace() {
-
+func (t *Terminal) clearAll() {
+	board := make([][]*Rune, t.height, t.height)
+	for i := range board {
+		board[i] = make([]*Rune, t.width, t.width)
+	}
+	t.board = board
+	t.x = 0
+	t.y = 0
 }
 
-func (t *Terminal) newLine() {
+func (t *Terminal) clearLine(y int) {
+	if !t.assertInBoard(0, y) {
+		return
+	}
+	t.board[y] = make([]*Rune, t.width, t.width)
+}
 
+func (t *Terminal) backspace() {
+	t.lineLeft(t.y, t.x, t.width, 1)
+	t.goXY(t.x-1, t.y)
+}
+
+func (t *Terminal) lineFeed() {
+	if t.y < t.width {
+		t.y++
+	} else {
+		t.lineUp(0, t.height, 1)
+	}
 }
 
 func (t *Terminal) carriageReturn() {
+	t.x = 0
+}
 
+func (t *Terminal) putRune(r rune) {
+	if !t.assertInBoard(t.x, t.y) {
+		return
+	}
+	nx := t.x
+	t.board[t.y][t.x] = &Rune{
+		r: r,
+	}
+	if r >= 32 && r < 127 {
+		// 1 char
+		nx++
+	} else if t.x+1 < t.width {
+		// 2 char
+		t.board[t.y][t.x+1] = nil
+		nx += 2
+	}
+	if nx >= t.width {
+		t.lineFeed()
+		t.x = 0
+	}
+}
+
+func (t *Terminal) tab() {
+	mod := t.x % 4
+	nx := t.x + (4 - mod)
+	for x := t.x; x < nx; x++ {
+		t.board[t.y][x] = nil
+	}
+	t.board[t.y][t.x] = &Rune{
+		r: rune('\t'),
+	}
+	t.goXY(nx, t.y)
+}
+
+func (t *Terminal) goXY(x, y int) {
+	if x >= t.width {
+		x = t.width - 1
+	}
+	if y >= t.height {
+		y = t.height - 1
+	}
+	if x < 0 {
+		x = 0
+	}
+	if y < 0 {
+		y = 0
+	}
+	t.x = x
+	t.y = y
+}
+
+func (t *Terminal) lineLeft(y, from, to, n int) {
+	if !t.assertInBoard(from-n, y) || !t.assertInBoard(to-1, y) {
+		return
+	}
+	if n >= t.width {
+		t.clearLine(y)
+		return
+	}
+	for x := from; x < to; x++ {
+		nx := x - n
+		t.board[y][nx] = t.board[y][x]
+	}
+	for i := 0; i < n; i++ {
+		x := to - i - 1
+		t.board[y][x] = nil
+	}
+}
+
+func (t *Terminal) lineRight(y, from, to, n int) {
+	if !t.assertInBoard(from, y) || !t.assertInBoard(to-1+n, y) {
+		return
+	}
+	if n >= t.width {
+		t.clearLine(y)
+		return
+	}
+	for x := to - 1; x >= from; x-- {
+		nx := x + n
+		t.board[y][nx] = t.board[y][x]
+	}
+	for i := 0; i < n; i++ {
+		x := from + i
+		t.board[y][x] = nil
+	}
+}
+
+func (t *Terminal) lineUp(from, to, n int) {
+	if !t.assertInBoard(0, from) || !t.assertInBoard(0, to-1) {
+		return
+	}
+	if n >= t.height {
+		t.clearAll()
+		return
+	}
+	for y := from; y < to; y++ {
+		ny := y - n
+		if ny < 0 {
+			continue
+		}
+		t.board[ny] = t.board[y]
+	}
+	for i := 0; i < n; i++ {
+		y := to - i - 1
+		t.clearLine(y)
+	}
+}
+
+func (t *Terminal) lineDown(from, to, n int) {
+	if !t.assertInBoard(0, from) || !t.assertInBoard(0, to-1) {
+		return
+	}
+	if n >= t.height {
+		t.clearAll()
+		return
+	}
+	for y := to - 1; y <= from; y-- {
+		ny := y + n
+		if ny >= t.height {
+			continue
+		}
+		t.board[ny] = t.board[y]
+	}
+	for i := 0; i < n; i++ {
+		y := from + i
+		t.clearLine(y)
+	}
+}
+
+func (t *Terminal) assertInBoard(x, y int) bool {
+	if x < 0 || x >= t.width {
+		fmt.Println("Overflow assertInBoard x", x)
+		return false
+	}
+	if y < 0 || y >= t.height {
+		fmt.Println("Overflow assertInBoard y", y)
+		return false
+	}
+	return true
 }
