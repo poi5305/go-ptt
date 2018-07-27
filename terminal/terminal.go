@@ -3,7 +3,10 @@ package terminal
 import (
 	"fmt"
 
+	"unicode/utf8"
+
 	"golang.org/x/text/encoding"
+	"golang.org/x/text/transform"
 )
 
 const (
@@ -37,8 +40,11 @@ type Terminal struct {
 	x      int
 	y      int
 
-	board   [][]*Rune
-	decoder *encoding.Decoder
+	board [][]*Rune
+	// decoder
+	decoder     *encoding.Decoder
+	runeFromBuf []byte
+	runeToBuf   []byte
 }
 
 func (t *Terminal) mainHandler() {
@@ -54,7 +60,39 @@ func (t *Terminal) mainHandler() {
 			t.handleCtrlByte(b)
 			continue
 		}
+		r := t.decode(b)
+		if r != utf8.RuneError {
+			t.putRune(r)
+		}
 	}
+}
+
+func (t *Terminal) decode(b byte) rune {
+	t.runeFromBuf = append(t.runeFromBuf, b)
+	if t.decoder == nil {
+		r, l := utf8.DecodeRune(t.runeFromBuf)
+		if r != utf8.RuneError {
+			t.runeFromBuf = t.runeFromBuf[l:]
+		}
+		if len(t.runeFromBuf) >= 4 {
+			t.runeFromBuf = make([]byte, 0, 4)
+			fmt.Println("decoder error bytes to utf8", t.runeFromBuf)
+		}
+		return r
+	}
+	nd, ns, err := t.decoder.Transform(t.runeToBuf, t.runeFromBuf, false)
+	if err != nil && err != transform.ErrShortSrc {
+		fmt.Println("decoder error", err, len(t.runeFromBuf))
+		return utf8.RuneError
+	}
+	str := string(t.runeToBuf[:nd])
+	runes := []rune(str)
+	fmt.Println(t.runeToBuf, t.runeFromBuf, nd, ns, str, runes)
+	t.runeFromBuf = t.runeFromBuf[ns:]
+	if len(runes) != 1 {
+		fmt.Println("decoder warning length != 1", err, len(runes))
+	}
+	return runes[0]
 }
 
 func (t *Terminal) receiveANSI() string {
