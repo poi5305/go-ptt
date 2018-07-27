@@ -28,6 +28,19 @@ const (
 	IAC    = byte(255)
 )
 
+func NewTerminal(width, height int) *Terminal {
+	term := &Terminal{
+		IntputChan:  make(chan byte, 1),
+		width:       width,
+		height:      height,
+		runeFromBuf: make([]byte, 0, 4),
+		runeToBuf:   make([]byte, 4, 4),
+	}
+	term.clearAll()
+	go term.mainHandler()
+	return term
+}
+
 type Rune struct {
 	r rune
 }
@@ -45,6 +58,10 @@ type Terminal struct {
 	decoder     *encoding.Decoder
 	runeFromBuf []byte
 	runeToBuf   []byte
+}
+
+func (t *Terminal) SetDecoder(d *encoding.Decoder) {
+	t.decoder = d
 }
 
 func (t *Terminal) mainHandler() {
@@ -116,31 +133,13 @@ func (t *Terminal) handleASNI(cmd string) {
 	switch asniType {
 	case 'H', 'f':
 		fmt.Sscanf(cmd, "[%d;%d"+string(asniType), &param1, &param2) // row;col
-		// if param1 != 0 {
-		// 	param1--
-		// }
-		// if param2 != 0 {
-		// 	param2--
-		// }
-		// if param1 >= 24 {
-		// 	param1 = 23
-		// }
-		// if param2 >= 80 {
-		// 	param2 = 79
-		// }
-		// v.cRow = param1
-		// v.cCol = param2
+		t.goXY(param2-1, param1-1)
 	case 'J':
 		if cmd[len(cmd)-2] == '2' {
-			// Erase Display
-			// v.eraseBoard()
+			t.clearAll()
 		}
 	case 'K':
-		// Erase Line Clears all characters from the cursor position to the end of the line (including the character at the cursor position).
-		// fmt.Println(v.cRow, v.cCol)
-		// for i := v.cCol; i < len(v.board[v.cRow]); i++ {
-		// 	v.board[v.cRow][i] = nil
-		// }
+		t.clearLine(t.y, t.x, t.width)
 	case 'm':
 	default:
 		fmt.Println("Error Unhandle ASNI", cmd)
@@ -153,18 +152,10 @@ func (t *Terminal) handleCtrlByte(r byte) {
 		break
 	case '\b':
 		t.backspace()
-		// if v.cCol > 0 {
-		// 	copy(v.board[v.cRow][v.cCol-1:], v.board[v.cRow][v.cCol:])
-		// 	v.board[v.cRow][len(v.board[v.cRow])-1] = nil
-		// 	v.cCol--
-		// }
 	case '\n', '\f', 'v':
 		t.lineFeed()
-		// v.cRow++
-		// v.cCol = 0
 	case '\r':
 		t.carriageReturn()
-		// v.cCol = 0
 	case '\t':
 	case '\x00':
 	default:
@@ -182,11 +173,17 @@ func (t *Terminal) clearAll() {
 	t.y = 0
 }
 
-func (t *Terminal) clearLine(y int) {
-	if !t.assertInBoard(0, y) {
+func (t *Terminal) clearLine(y, from, to int) {
+	if !t.assertInBoard(from, y) || !t.assertInBoard(to, y) {
 		return
 	}
-	t.board[y] = make([]*Rune, t.width, t.width)
+	if from == 0 && to == t.width {
+		t.board[y] = make([]*Rune, t.width, t.width)
+		return
+	}
+	for x := from; x < to; x++ {
+		t.board[y][x] = nil
+	}
 }
 
 func (t *Terminal) backspace() {
@@ -262,7 +259,7 @@ func (t *Terminal) lineLeft(y, from, to, n int) {
 		return
 	}
 	if n >= t.width {
-		t.clearLine(y)
+		t.clearLine(y, 0, t.width)
 		return
 	}
 	for x := from; x < to; x++ {
@@ -280,7 +277,7 @@ func (t *Terminal) lineRight(y, from, to, n int) {
 		return
 	}
 	if n >= t.width {
-		t.clearLine(y)
+		t.clearLine(y, 0, t.width)
 		return
 	}
 	for x := to - 1; x >= from; x-- {
@@ -310,7 +307,7 @@ func (t *Terminal) lineUp(from, to, n int) {
 	}
 	for i := 0; i < n; i++ {
 		y := to - i - 1
-		t.clearLine(y)
+		t.clearLine(y, 0, t.width)
 	}
 }
 
@@ -331,7 +328,7 @@ func (t *Terminal) lineDown(from, to, n int) {
 	}
 	for i := 0; i < n; i++ {
 		y := from + i
-		t.clearLine(y)
+		t.clearLine(y, 0, t.width)
 	}
 }
 
