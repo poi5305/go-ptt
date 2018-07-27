@@ -1,16 +1,20 @@
 package main
 
 import (
+	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"time"
 
+	websocket2 "github.com/gorilla/websocket"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/net/websocket"
 )
 
-func main() {
-
+func getSSHClient() (io.Reader, io.Writer) {
 	config := &ssh.ClientConfig{
-		User: "bbsu",
+		User: "bbs",
 		Auth: []ssh.AuthMethod{
 			ssh.Password(""),
 		},
@@ -41,25 +45,69 @@ func main() {
 
 	go session.Start("")
 
-	// bs := make([]byte, 1, 1)
-	// for {
-	// 	n, err := reader.Read(bs)
-	// 	if err != nil {
-	// 		fmt.Println(err)
-	// 		break
+	return stdout, stdin
+}
+
+func getWebsocketClient() (io.Reader, io.Writer) {
+	origin := "https://www.ptt.cc"
+	url := "wss://ws.ptt.cc/bbsu"
+	ws, err := websocket.Dial(url, "", origin)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return ws, ws
+}
+
+func getWebsocketClient2() (io.Reader, io.Writer) {
+	origin := "https://www.ptt.cc"
+	url := "wss://ws.ptt.cc/bbsu"
+	hs := make(http.Header)
+	hs["Origin"] = []string{origin}
+	ws, _, err := websocket2.DefaultDialer.Dial(url, hs)
+	if err != nil {
+		log.Fatal(err)
+	}
+	m, r, _ := ws.NextReader()
+	w, _ := ws.NextWriter(m)
+	return r, w
+}
+
+func main() {
+	// r, w := getSSHClient()
+	r, w := getWebsocketClient()
+
+	// bs := make([]byte, 1024, 1024)
+	// go func() {
+	// 	for {
+	// 		r.Read(bs)
+	// 		fmt.Println(string(bs))
 	// 	}
-	// 	fmt.Println(n, bs)
-	// }
-	// session.Wait()
-	vm := NewVM(stdout, stdin)
+	// }()
+	// w.Write([]byte{IAC, WILL, TTYPE})
+	// w.Write([]byte{IAC, SB, TTYPE, 0, 86, 84, 49, 48, 48, IAC, SE})
+	// w.Write([]byte{IAC, WILL, NAWS})
+	// w.Write([]byte{IAC, SB, 0, 80, 0, 24, IAC, SE})
+	// w.Write([]byte{IAC, DO, ECHO})
+	// w.Write([]byte{IAC, DO, SGA})
+	// w.Write([]byte{IAC, DONOT, BINARY})
+	// time.Sleep(time.Second)
+	// w.Write([]byte("guest\r"))
+	// time.Sleep(time.Second)
+	// w.Write([]byte("\r\n\n\n\n"))
+	// time.Sleep(time.Second)
 
-	vm.writeInitialMessage()
-	time.Sleep(5 * time.Second)
-	vm.printBoard()
+	// time.Sleep(time.Second)
+	// time.Sleep(time.Second)
+
+	vm := NewVM(r, w)
+	time.Sleep(2 * time.Second)
+	// vm.writeInitialMessage()
+	fmt.Println("Guest")
+	vm.writeGuest()
+	time.Sleep(1 * time.Second)
 	for {
-		// fmt.Println("want read")
-		vm.read()
-
+		vm.printBoard()
+		time.Sleep(time.Second * 3)
 	}
 
 }
