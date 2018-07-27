@@ -68,7 +68,7 @@ func getSSHClient() (io.Reader, io.Writer) {
 
 func getWebsocketClient() (io.Reader, io.Writer) {
 	origin := "https://www.ptt.cc"
-	url := "wss://ws.ptt.cc/bbsu"
+	url := "wss://ws.ptt.cc/bbs"
 	ws, err := websocket.Dial(url, "", origin)
 	if err != nil {
 		log.Fatal(err)
@@ -78,7 +78,7 @@ func getWebsocketClient() (io.Reader, io.Writer) {
 
 func getWebsocketClient2() (io.Reader, io.Writer) {
 	origin := "https://www.ptt.cc"
-	url := "wss://ws.ptt.cc/bbsu"
+	url := "wss://ws.ptt.cc/bbs"
 	hs := make(http.Header)
 	hs["Origin"] = []string{origin}
 	ws, _, err := websocket2.DefaultDialer.Dial(url, hs)
@@ -101,53 +101,92 @@ func getTelnet() io.ReadWriter {
 func main() {
 	// var caller telnet.Caller = telnet.StandardCaller
 	// rw := getTelnet()
-	r, w := getSSHClient()
+	// r, w := getSSHClient()
 	// r, w := getWebsocketClient()
 
+	// r2, w1 := io.Pipe()
+	r1, w2 := io.Pipe()
+
 	rw := &RW{
-		R: r,
-		W: w,
+		R: r1,
+		W: nil,
 	}
+
+	term := terminal.NewTerminal(rw, "")
+
+	term.SetSize(80, 24)
 	// oldState, err := terminal.MakeRaw(0)
 	// if err != nil {
 	// 	panic(err)
 	// }
 	// defer terminal.Restore(0, oldState)
 
-	t := terminal.NewTerminal(rw, "")
-	t.SetSize(80, 24)
-	t.SetBracketedPasteMode(true)
+	origin := "https://www.ptt.cc"
+	url := "wss://ws.ptt.cc/bbs"
+	hs := make(http.Header)
+	hs["Origin"] = []string{origin}
+	ws, _, err := websocket2.DefaultDialer.Dial(url, hs)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	time.Sleep(2 * time.Second)
-	//
+	bs := make([]byte, 1024, 1024)
+
+	fmt.Println(w2, term)
+	// i, e := ws.Read(bs)
+	// fmt.Println(i, e)
+
 	go func() {
 		for {
-			s, e := t.ReadLine()
-			if e == nil {
-				fmt.Println(s)
-				if strings.Contains(s, "new") {
-					fmt.Println("GGGG")
-				}
+			t, r, _ := ws.NextReader()
+			i, _ := r.Read(bs)
+			s := string(bs[:i])
+			// fmt.Print(s)
+			w2.Write(bs[:i])
+			// fmt.Println(ii)
+			if strings.Contains(s, "new") {
+				// t, r, _ = ws.NextReader()
+				time.Sleep(time.Second)
+				w, _ := ws.NextWriter(t)
+				w.Write([]byte("guest\r\n"))
+				w.Close()
+				// term.Write([]byte("guest\r\n"))
+				// fmt.Print("guest\r\n")
+			}
+		}
+	}()
+
+	// go func() {
+	// 	bb := make([]byte, 1, 1)
+	// 	for {
+	// 		i, e := r2.Read(bb)
+	// 		if e == nil {
+	// 			fmt.Println(i, e, bs[:i])
+	// 		}
+	// 	}
+	// }()
+
+	go func() {
+		for {
+			line, err := term.ReadLine()
+			if err == nil {
+				fmt.Println(line)
 			} else {
+				fmt.Println(err)
 				break
 			}
 		}
 	}()
 
-	w.Write([]byte("guest\r"))
-	time.Sleep(time.Second)
-	w.Write([]byte("111\r"))
-	time.Sleep(time.Second)
-	w.Write([]byte("\n"))
-	time.Sleep(10 * time.Second)
+	time.Sleep(2 * time.Second)
+	// t, _, _ := ws.NextReader()
+	// w, _ := ws.NextWriter(t)
+	// w.Write([]byte("guest\r\n"))
+	// w.Close()
+	// fmt.Print("guest\r\n")
 
-	// bs := make([]byte, 1024, 1024)
-	// go func() {
-	// 	for {
-	// 		r.Read(bs)
-	// 		fmt.Println(string(bs))
-	// 	}
-	// }()
+	// ws.NextWriter(t)
+
 	// w.Write([]byte{IAC, WILL, TTYPE})
 	// w.Write([]byte{IAC, SB, TTYPE, 0, 86, 84, 49, 48, 48, IAC, SE})
 	// w.Write([]byte{IAC, WILL, NAWS})
@@ -156,13 +195,15 @@ func main() {
 	// w.Write([]byte{IAC, DO, SGA})
 	// w.Write([]byte{IAC, DONOT, BINARY})
 	// time.Sleep(time.Second)
-	// w.Write([]byte("guest\r"))
+	// w, _ := ws.NewFrameWriter(ws.PayloadType)
+	// w.Write([]byte("fqstory\r"))
+	// w.Close()
 	// time.Sleep(time.Second)
 	// w.Write([]byte("\r\n\n\n\n"))
 	// time.Sleep(time.Second)
 
-	// time.Sleep(time.Second)
-	// time.Sleep(time.Second)
+	time.Sleep(time.Second)
+	time.Sleep(time.Second)
 
 	// vm := NewVM(r, w)
 	// time.Sleep(2 * time.Second)

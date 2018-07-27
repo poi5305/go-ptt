@@ -97,14 +97,13 @@ func (v *VM) writeInitialMessage() {
 }
 
 func (v *VM) writeGuest() {
-	cmd := []byte("fqstory\rfq123456\r")
+	cmd := []byte("fqstory\r")
 	fmt.Println("writeGuest")
 	for _, c := range cmd {
-		v.rawWriter.WriteByte(c)
 		v.byteChan <- c
 	}
+	v.rawWriter.Write(cmd)
 	v.rawWriter.Flush()
-
 }
 
 func (v *VM) readNBytes(n int) ([]byte, error) {
