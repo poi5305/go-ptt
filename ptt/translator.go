@@ -1,5 +1,14 @@
 package ptt
 
+import (
+	"bytes"
+	"fmt"
+	"io/ioutil"
+
+	"golang.org/x/text/encoding/traditionalchinese"
+	"golang.org/x/text/transform"
+)
+
 // NewTranslatorB2U new translator
 func NewTranslatorB2U(in chan byte, out chan byte) *TranslatorB2U {
 	t := &TranslatorB2U{
@@ -18,6 +27,7 @@ type TranslatorB2U struct {
 	out chan byte
 
 	bh byte
+	c  int
 	// bl byte
 }
 
@@ -31,6 +41,7 @@ func (t *TranslatorB2U) init() {
 				break
 			}
 			t.newByte(b)
+			t.c++
 		}
 	}()
 }
@@ -42,6 +53,18 @@ func (t *TranslatorB2U) newByte(b byte) {
 		} else {
 			t.out <- b
 		}
+	} else if b == 27 { // ESC ignore ANSI words
+		t.out <- b
+		for {
+			ansiByte, ok := <-t.in
+			if !ok {
+				break
+			}
+			t.out <- ansiByte
+			if ansiByte == 109 { // 109 means 'm'
+				break
+			}
+		}
 	} else {
 		utf8Value, ok := t.testBig5(t.bh, b)
 		if ok {
@@ -51,6 +74,7 @@ func (t *TranslatorB2U) newByte(b byte) {
 			}
 			t.bh = 0
 		} else {
+			fmt.Printf("Can not translate %d %X %X\n", t.c, t.bh, b)
 			t.out <- t.bh
 			t.out <- b
 			t.bh = 0
@@ -65,12 +89,12 @@ func (t *TranslatorB2U) testBig5(bh byte, bl byte) (int, bool) {
 }
 
 // Big5ToUTF8 convert BIG5 to UTF-8
-// func Big5ToUTF8(s []byte) ([]byte, error) {
-// 	bufReader := bytes.NewReader(s)
-// 	O := transform.NewReader(bufReader, traditionalchinese.Big5.NewDecoder())
-// 	d, e := ioutil.ReadAll(O)
-// 	if e != nil {
-// 		return nil, e
-// 	}
-// 	return d, nil
-// }
+func Big5ToUTF8(s []byte) ([]byte, error) {
+	bufReader := bytes.NewReader(s)
+	O := transform.NewReader(bufReader, traditionalchinese.Big5.NewDecoder())
+	d, e := ioutil.ReadAll(O)
+	if e != nil {
+		return nil, e
+	}
+	return d, nil
+}

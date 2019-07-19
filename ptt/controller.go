@@ -10,22 +10,7 @@ import (
 
 // NewController new controller
 func NewController() *Controller {
-	ri := make(chan byte)
-	ro := make(chan byte)
-	bui := make(chan byte)
-	buo := make(chan byte)
-	caller := NewCaller(ri, ro)
-	b2u := NewTranslatorB2U(bui, buo)
-	b2u.init()
-
-	c := &Controller{
-		caller:        caller,
-		b2u:           b2u,
-		rawInputChan:  ri,
-		rawOutputChan: ro,
-		b2uInputChan:  bui,
-		b2uOutputChan: buo,
-	}
+	c := &Controller{}
 
 	return c
 }
@@ -34,10 +19,12 @@ func NewController() *Controller {
 type Controller struct {
 	caller        *Caller
 	b2u           *TranslatorB2U
+	terminal      *Terminal
 	rawInputChan  chan byte
 	rawOutputChan chan byte
 	b2uInputChan  chan byte
 	b2uOutputChan chan byte
+	terminalChan  chan byte
 	conn          *telnet.Conn
 }
 
@@ -46,11 +33,19 @@ func (c *Controller) Start() {
 	if c.conn != nil {
 		c.Stop()
 	}
+	c.rawInputChan = make(chan byte)
+	c.rawOutputChan = make(chan byte)
+	c.b2uInputChan = make(chan byte)
+	c.b2uOutputChan = make(chan byte)
+	c.terminalChan = make(chan byte)
+	c.caller = NewCaller(c.rawInputChan, c.rawOutputChan)
+	c.b2u = NewTranslatorB2U(c.b2uInputChan, c.b2uOutputChan)
+	c.b2u.init()
+	c.terminal = NewTerminal(c.terminalChan)
 
 	go func() {
 		for {
 			b, ok := <-c.rawOutputChan
-
 			if !ok {
 				break
 			}
@@ -61,8 +56,12 @@ func (c *Controller) Start() {
 
 	go func() {
 		for {
-			b := <-c.b2uOutputChan
+			b, ok := <-c.b2uOutputChan
+			if !ok {
+				break
+			}
 			oi.LongWriteByte(os.Stdout, b)
+			// c.terminalChan <- b
 		}
 	}()
 	// time.Sleep(time.Second)
@@ -72,6 +71,10 @@ func (c *Controller) Start() {
 	// 	c.rawInputChan <- v
 	// }
 
+	c.dial()
+}
+
+func (c *Controller) dial() {
 	var err error
 	c.conn, err = telnet.DialTo("ptt.cc:23")
 	if nil != err {
@@ -80,7 +83,6 @@ func (c *Controller) Start() {
 	}
 	client := &telnet.Client{Caller: c.caller}
 	client.Call(c.conn)
-
 }
 
 // Stop stop connection
@@ -88,5 +90,9 @@ func (c *Controller) Stop() {
 	if c.conn != nil {
 		c.conn.Close()
 		c.conn = nil
+		close(c.rawInputChan)
+		close(c.rawOutputChan)
+		close(c.b2uInputChan)
+		close(c.b2uOutputChan)
 	}
 }
