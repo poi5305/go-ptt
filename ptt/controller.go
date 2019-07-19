@@ -23,8 +23,8 @@ type Controller struct {
 	rawInputChan  chan byte
 	rawOutputChan chan byte
 	b2uInputChan  chan byte
-	b2uOutputChan chan byte
-	terminalChan  chan byte
+	b2uOutputChan chan rune
+	terminalChan  chan rune
 	conn          *telnet.Conn
 }
 
@@ -36,8 +36,8 @@ func (c *Controller) Start() {
 	c.rawInputChan = make(chan byte)
 	c.rawOutputChan = make(chan byte)
 	c.b2uInputChan = make(chan byte)
-	c.b2uOutputChan = make(chan byte)
-	c.terminalChan = make(chan byte)
+	c.b2uOutputChan = make(chan rune)
+	c.terminalChan = make(chan rune)
 	c.caller = NewCaller(c.rawInputChan, c.rawOutputChan)
 	c.b2u = NewTranslatorB2U(c.b2uInputChan, c.b2uOutputChan)
 	c.b2u.init()
@@ -60,7 +60,10 @@ func (c *Controller) Start() {
 			if !ok {
 				break
 			}
-			oi.LongWriteByte(os.Stdout, b)
+			s := []byte(string(rune(b)))
+			for _, v := range s {
+				oi.LongWriteByte(os.Stdout, v)
+			}
 			// c.terminalChan <- b
 		}
 	}()

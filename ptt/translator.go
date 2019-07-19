@@ -2,7 +2,6 @@ package ptt
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
 
 	"golang.org/x/text/encoding/traditionalchinese"
@@ -10,7 +9,7 @@ import (
 )
 
 // NewTranslatorB2U new translator
-func NewTranslatorB2U(in chan byte, out chan byte) *TranslatorB2U {
+func NewTranslatorB2U(in chan byte, out chan rune) *TranslatorB2U {
 	t := &TranslatorB2U{
 		in:  in,
 		out: out,
@@ -24,7 +23,7 @@ func NewTranslatorB2U(in chan byte, out chan byte) *TranslatorB2U {
 // TranslatorB2U Big5 <-> UTF8
 type TranslatorB2U struct {
 	in  chan byte
-	out chan byte
+	out chan rune
 
 	bh byte
 	c  int
@@ -51,16 +50,16 @@ func (t *TranslatorB2U) newByte(b byte) {
 		if b >= 0x81 && b <= 0xFE {
 			t.bh = b
 		} else {
-			t.out <- b
+			t.out <- rune(b)
 		}
 	} else if b == 27 { // ESC ignore ANSI words
-		t.out <- b
+		t.out <- rune(b)
 		for {
 			ansiByte, ok := <-t.in
 			if !ok {
 				break
 			}
-			t.out <- ansiByte
+			t.out <- rune(ansiByte)
 			if ansiByte == 109 { // 109 means 'm'
 				break
 			}
@@ -68,15 +67,16 @@ func (t *TranslatorB2U) newByte(b byte) {
 	} else {
 		utf8Value, ok := t.testBig5(t.bh, b)
 		if ok {
-			s := []byte(string(rune(utf8Value)))
-			for _, v := range s {
-				t.out <- v
-			}
+			// s := []byte(string(rune(utf8Value)))
+			// for _, v := range s {
+			// 	t.out <- rune(v)
+			// }
+			t.out <- rune(utf8Value)
 			t.bh = 0
 		} else {
-			fmt.Printf("Can not translate %d %X %X\n", t.c, t.bh, b)
-			t.out <- t.bh
-			t.out <- b
+			// fmt.Printf("Can not translate %d %X %X\n", t.c, t.bh, b)
+			t.out <- rune(t.bh)
+			t.out <- rune(b)
 			t.bh = 0
 		}
 	}

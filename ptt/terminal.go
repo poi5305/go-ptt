@@ -1,7 +1,7 @@
 package ptt
 
 // NewTerminal new terminal
-func NewTerminal(in chan byte) *Terminal {
+func NewTerminal(in chan rune) *Terminal {
 	t := &Terminal{
 		in: in,
 	}
@@ -10,5 +10,5 @@ func NewTerminal(in chan byte) *Terminal {
 
 // Terminal vt100
 type Terminal struct {
-	in chan byte
+	in chan rune
 }
