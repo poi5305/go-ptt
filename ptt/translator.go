@@ -60,7 +60,7 @@ func (t *TranslatorB2U) newByte(b byte) {
 				break
 			}
 			t.out <- rune(ansiByte)
-			if ansiByte == 109 { // 109 means 'm'
+			if ansiByte == 'm' || ansiByte == 'H' || ansiByte == 'J' || ansiByte == 'K' {
 				break
 			}
 		}

@@ -2,9 +2,7 @@ package ptt
 
 import (
 	"fmt"
-	"os"
 
-	oi "github.com/reiver/go-oi"
 	telnet "github.com/reiver/go-telnet"
 )
 
@@ -60,11 +58,11 @@ func (c *Controller) Start() {
 			if !ok {
 				break
 			}
-			s := []byte(string(rune(b)))
-			for _, v := range s {
-				oi.LongWriteByte(os.Stdout, v)
-			}
-			// c.terminalChan <- b
+			// s := []byte(string(rune(b)))
+			// for _, v := range s {
+			// 	oi.LongWriteByte(os.Stdout, v)
+			// }
+			c.terminalChan <- b
 		}
 	}()
 	// time.Sleep(time.Second)
