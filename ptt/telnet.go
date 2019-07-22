@@ -11,17 +11,17 @@ import (
 	telnet "github.com/reiver/go-telnet"
 )
 
-// NewCaller new Caller
-func NewCaller(in chan byte, out chan byte) *Caller {
-	c := &Caller{
+// NewTelnet new Telnet
+func NewTelnet(in chan byte, out chan byte) *Telnet {
+	c := &Telnet{
 		inputChan:  in,
 		outputChan: out,
 	}
 	return c
 }
 
-// Caller for go-telnet
-type Caller struct {
+// Telnet for go-telnet
+type Telnet struct {
 	telnetWriter telnet.Writer
 	telnetReader telnet.Reader
 	ctx          telnet.Context
@@ -30,7 +30,7 @@ type Caller struct {
 	outputChan chan byte
 }
 
-func (c *Caller) init() {
+func (c *Telnet) init() {
 	go func() {
 		p := make([]byte, 1, 1)
 		for {
@@ -88,7 +88,7 @@ func (c *Caller) init() {
 }
 
 // CallTELNET called by go-telnet for init
-func (c *Caller) CallTELNET(ctx telnet.Context, w telnet.Writer, r telnet.Reader) {
+func (c *Telnet) CallTELNET(ctx telnet.Context, w telnet.Writer, r telnet.Reader) {
 	fmt.Println("CallTELNET")
 	c.ctx = ctx
 	c.telnetWriter = w
@@ -104,12 +104,12 @@ func scannerSplitFunc(data []byte, atEOF bool) (advance int, token []byte, err e
 	return bufio.ScanLines(data, atEOF)
 }
 
-// func (c *Caller) Write(bs []byte) (int, error) {
+// func (c *Telnet) Write(bs []byte) (int, error) {
 // 	fmt.Println("Write", len(bs))
 // 	return len(bs), nil
 // }
 
-// func (c *Caller) Read(bs []byte) (int, error) {
+// func (c *Telnet) Read(bs []byte) (int, error) {
 // 	fmt.Println("Read", len(bs))
 // 	return len(bs), nil
 // }

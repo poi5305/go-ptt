@@ -15,7 +15,7 @@ func NewController() *Controller {
 
 // Controller handle flow
 type Controller struct {
-	caller        *Caller
+	telnet        *Telnet
 	b2u           *TranslatorB2U
 	terminal      *Terminal
 	rawInputChan  chan byte
@@ -36,7 +36,7 @@ func (c *Controller) Start() {
 	c.b2uInputChan = make(chan byte)
 	c.b2uOutputChan = make(chan rune)
 	c.terminalChan = make(chan rune)
-	c.caller = NewCaller(c.rawInputChan, c.rawOutputChan)
+	c.telnet = NewTelnet(c.rawInputChan, c.rawOutputChan)
 	c.b2u = NewTranslatorB2U(c.b2uInputChan, c.b2uOutputChan)
 	c.b2u.init()
 	c.terminal = NewTerminal(c.terminalChan)
@@ -82,7 +82,7 @@ func (c *Controller) dial() {
 		fmt.Println(err)
 		return
 	}
-	client := &telnet.Client{Caller: c.caller}
+	client := &telnet.Client{Caller: c.telnet}
 	client.Call(c.conn)
 }
 
