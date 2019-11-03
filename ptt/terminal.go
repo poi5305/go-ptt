@@ -2,7 +2,6 @@ package ptt
 
 import (
 	"fmt"
-	"time"
 )
 
 // Rune contains rune, position, colors...
@@ -38,13 +37,13 @@ func (t *Terminal) init() {
 	t.clearAll()
 	go t.initParser()
 
-	go func() {
-		for {
-			time.Sleep(3 * time.Second)
-			text := t.getBoardText()
-			fmt.Print(text)
-		}
-	}()
+	// go func() {
+	// 	for {
+	// 		time.Sleep(3 * time.Second)
+	// 		text := t.GetBoardText(true)
+	// 		fmt.Print(text)
+	// 	}
+	// }()
 }
 
 func (t *Terminal) initParser() {
@@ -63,10 +62,10 @@ func (t *Terminal) parseInput(r rune) {
 		ansi := t.readANSI()
 		t.commandANSI(ansi)
 	case r < 32:
-		fmt.Print(string(r))
+		// fmt.Print(string(r))
 		t.commandCtrl(r)
 	default:
-		fmt.Print(string(r))
+		// fmt.Print(string(r))
 		t.putRune(r)
 	}
 }
@@ -215,8 +214,12 @@ func (t *Terminal) putRune(r rune) {
 	}
 }
 
-func (t *Terminal) getBoardText() string {
-	text := "\n===01234567890123456789012345678901234567890123456789012345678901234567890123456789\n"
+// GetBoardText get current board text
+func (t *Terminal) GetBoardText(index bool) string {
+	text := ""
+	if index {
+		text = "\n===01234567890123456789012345678901234567890123456789012345678901234567890123456789\n"
+	}
 	for r, row := range t.board {
 		text += fmt.Sprintf("%2d ", r)
 		for x := 0; x < len(row); x++ {
@@ -232,7 +235,9 @@ func (t *Terminal) getBoardText() string {
 		}
 		text += "\n"
 	}
-	text += "===01234567890123456789012345678901234567890123456789012345678901234567890123456789\n"
+	if index {
+		text += "===01234567890123456789012345678901234567890123456789012345678901234567890123456789\n"
+	}
 	return text
 }
 

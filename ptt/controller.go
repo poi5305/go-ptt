@@ -2,6 +2,8 @@ package ptt
 
 import (
 	"fmt"
+	"strings"
+	"time"
 
 	telnet "github.com/reiver/go-telnet"
 )
@@ -36,7 +38,7 @@ func (c *Controller) Start() {
 	c.b2uInputChan = make(chan byte)
 	c.b2uOutputChan = make(chan rune)
 	c.terminalChan = make(chan rune)
-	c.telnet = NewTelnet(c.rawInputChan, c.rawOutputChan)
+	c.telnet = NewTelnet(c.rawInputChan, c.rawOutputChan, false)
 	c.b2u = NewTranslatorB2U(c.b2uInputChan, c.b2uOutputChan)
 	c.b2u.init()
 	c.terminal = NewTerminal(c.terminalChan)
@@ -47,7 +49,6 @@ func (c *Controller) Start() {
 			if !ok {
 				break
 			}
-			// oi.LongWriteByte(os.Stdout, b)
 			c.b2uInputChan <- b
 		}
 	}()
@@ -58,21 +59,13 @@ func (c *Controller) Start() {
 			if !ok {
 				break
 			}
-			// s := []byte(string(rune(b)))
-			// for _, v := range s {
-			// 	oi.LongWriteByte(os.Stdout, v)
-			// }
 			c.terminalChan <- b
 		}
 	}()
-	// time.Sleep(time.Second)
 
-	// bs := []byte("\n")
-	// for _, v := range bs {
-	// 	c.rawInputChan <- v
-	// }
+	go c.dial()
 
-	c.dial()
+	time.Sleep(100 * time.Millisecond)
 }
 
 func (c *Controller) dial() {
@@ -91,9 +84,34 @@ func (c *Controller) Stop() {
 	if c.conn != nil {
 		c.conn.Close()
 		c.conn = nil
-		close(c.rawInputChan)
-		close(c.rawOutputChan)
 		close(c.b2uInputChan)
 		close(c.b2uOutputChan)
 	}
+}
+
+// WriteString send message out
+func (c *Controller) WriteString(str string) {
+	bs := []byte(str)
+	for _, b := range bs {
+		c.rawInputChan <- b
+	}
+}
+
+// ReadBoard return current terminal buffer
+func (c *Controller) ReadBoard() string {
+	return c.terminal.GetBoardText(false)
+}
+
+// WaitUntilString wait board contain string, timeout in milliseconds
+func (c *Controller) WaitUntilString(str string, timeout int64) bool {
+	now := time.Now()
+	for time.Now().Sub(now).Nanoseconds()/1000000 < timeout {
+		board := c.terminal.GetBoardText(false)
+		if strings.Contains(board, str) {
+			fmt.Println(board)
+			return true
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return false
 }

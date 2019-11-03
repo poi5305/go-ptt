@@ -12,10 +12,11 @@ import (
 )
 
 // NewTelnet new Telnet
-func NewTelnet(in chan byte, out chan byte) *Telnet {
+func NewTelnet(in, out chan byte, useStdin bool) *Telnet {
 	c := &Telnet{
 		inputChan:  in,
 		outputChan: out,
+		useStdin:   useStdin,
 	}
 	return c
 }
@@ -28,6 +29,7 @@ type Telnet struct {
 
 	inputChan  chan byte
 	outputChan chan byte
+	useStdin   bool
 }
 
 func (c *Telnet) init() {
@@ -47,16 +49,15 @@ func (c *Telnet) init() {
 		}
 	}()
 
-	// go func() {
-	// 	for {
-	// 		b, ok := <-c.inputChan
-	// 		if !ok {
-	// 			break
-	// 		}
-	// 		oi.LongWriteByte(c.telnetWriter, b)
-	// 	}
-	// }()
+	if c.useStdin {
+		c.dealWithStdinScanner()
+	} else {
+		c.dealWithInputChan()
+	}
+	time.Sleep(500 * time.Millisecond)
+}
 
+func (c *Telnet) dealWithStdinScanner() {
 	var buffer bytes.Buffer
 	var p []byte
 
@@ -71,7 +72,6 @@ func (c *Telnet) init() {
 		buffer.Write(crlf)
 
 		p = buffer.Bytes()
-
 		n, err := oi.LongWrite(c.telnetWriter, p)
 		if nil != err {
 			break
@@ -83,13 +83,23 @@ func (c *Telnet) init() {
 		}
 		buffer.Reset()
 	}
+}
 
-	time.Sleep(3 * time.Millisecond)
+func (c *Telnet) dealWithInputChan() {
+	for {
+		b, ok := <-c.inputChan
+		if !ok {
+			break
+		}
+		err := oi.LongWriteByte(c.telnetWriter, b)
+		if nil != err {
+			break
+		}
+	}
 }
 
 // CallTELNET called by go-telnet for init
 func (c *Telnet) CallTELNET(ctx telnet.Context, w telnet.Writer, r telnet.Reader) {
-	fmt.Println("CallTELNET")
 	c.ctx = ctx
 	c.telnetWriter = w
 	c.telnetReader = r

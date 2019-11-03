@@ -97,7 +97,7 @@ func (v *VM) writeInitialMessage() {
 }
 
 func (v *VM) writeGuest() {
-	cmd := []byte("fqstory\r")
+	cmd := []byte("\r")
 	fmt.Println("writeGuest")
 	for _, c := range cmd {
 		v.byteChan <- c
